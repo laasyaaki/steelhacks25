@@ -1,57 +1,157 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
+import { jsonrepair } from "jsonrepair";
 
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export async function POST(request: Request) {
-  const { url } = await request.json();
+function extractJson(text: string) {
+  if (!text) return "";
+  let t = text
+    .trim()
+    .replace(/^```(json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
 
-  if (!url) {
-    return NextResponse.json({ error: 'URL is required' }, { status: 400 });
-  }
+  t = t
+    .replace(/^<json>/i, "")
+    .replace(/<\/json>$/i, "")
+    .trim();
 
+  const m = t.match(/\{[\s\S]*\}/);
+  return m ? m[0] : t;
+}
+
+async function callModelWithTools(url: string, reformulateFrom?: string) {
+  const tools = [{ urlContext: {} }, { googleSearch: {} }];
+  const model = "gemini-2.5-flash";
+
+  const systemRules = `
+You are a STRICT JSON generator.
+Output ONLY valid, minified JSON (no markdown, no backticks, no comments, no trailing commas).
+Begin with { and end with }.
+Schema:
+{
+  "biasScore": number,
+  "verdict": "No issue" | "Possible gender-generalization bias" | "Likely gender-generalization bias",
+  "rationale": string,
+  "evidence": [{"quote": string, "section"?: string}],
+  "citations": [{"title"?: string, "uri": string}]
+}
+`.trim();
+
+  const task = reformulateFrom
+    ? `Reformat the following answer into STRICT JSON ONLY, adhering to the schema. Do not add any text outside JSON:\n\n${reformulateFrom}`
+    : `Task: "Is this biased?"
+Analyze the study at ${url}.
+Focus on participants' sex/gender distribution and whether conclusions over-generalize beyond the sampled gender.
+
+Rules:
+- Extract sex/gender counts or state if missing.
+- If one sex ≥ 80% AND conclusions generalize to "people/patients/everyone" without explicit sex limitation → bias.
+- Score:
+  80 = clear over-generalization with ≥80% single-sex
+  60 = 60-79% skew + generalization
+  40 = generalization with near-balanced sample
+  20 = balanced with no issue
+  10 = authors clearly limit scope to sampled sex
+Return STRICT JSON ONLY.`;
+
+  const contents = [
+    { role: "user", parts: [{ text: systemRules }] },
+    { role: "user", parts: [{ text: task }] },
+  ];
+
+  return ai.models.generateContent({
+    model,
+    contents,
+    config: {
+      tools,
+      temperature: 0.3,
+    },
+  });
+}
+
+export async function POST(req: Request) {
   try {
-    const BIASED_WORDS = [
-      "obviously", "clearly", "undoubtedly", "surely", "certainly",
-      "miraculously", "amazingly", "shockingly", "surprisingly",
-      "huge", "tremendous", "massive", "enormous",
-      "tiny", "insignificant", "minor",
-      "always", "never",
-      "everyone", "no one",
-      "good", "bad", "right", "wrong",
-      "lazy", "stupid", "ignorant",
-      "brilliant", "genius", "expert"
-    ];
-
-    // const response = await web_fetch({ prompt: `Please fetch the text content of the page at this URL: ${url}` });
-    // const content = response.content;
-
-    // Simulated content for local development
-    const content = "This is a sample text that contains some biased words like obviously and clearly. It is a brilliant article that is undoubtedly correct. Everyone should read it.";
-
-    if (!content) {
-      return NextResponse.json({ error: 'Could not fetch content from the URL' }, { status: 500 });
+    const { url } = await req.json();
+    if (!url || typeof url !== "string") {
+      return NextResponse.json({ error: "URL is required" }, { status: 400 });
     }
 
-    const words = content.toLowerCase().split(/\s+/);
-    let biasCount = 0;
-    const foundBiasedWords = new Set<string>();
+    //attempt uno
+    const res1 = await callModelWithTools(url);
+    if (!res1.candidates?.length) {
+      return NextResponse.json(
+        { error: "No candidates returned..." },
+        { status: 502 },
+      );
+    }
 
-    for (const word of words) {
-      if (BIASED_WORDS.includes(word)) {
-        biasCount++;
-        foundBiasedWords.add(word);
+    const parts = res1.candidates[0]?.content?.parts ?? [];
+    const combined =
+      parts.map((p: any) => p.text ?? p.stringValue ?? "").join("\n") ||
+      res1.text ||
+      "";
+
+    let jsonText = extractJson(combined);
+    try {
+      const parsed = JSON.parse(jsonText);
+      const grounding = res1.candidates?.[0]?.groundingMetadata ?? null;
+      const urlMeta = (res1.candidates?.[0] as any)?.urlContextMetadata ?? null;
+      return NextResponse.json({ ...parsed, debug: { grounding, urlMeta } });
+    } catch {
+      //jsonrepair pls save us
+      try {
+        const repaired = jsonrepair(jsonText);
+        const parsed = JSON.parse(repaired);
+        const grounding = res1.candidates?.[0]?.groundingMetadata ?? null;
+        const urlMeta =
+          (res1.candidates?.[0] as any)?.urlContextMetadata ?? null;
+        return NextResponse.json({ ...parsed, debug: { grounding, urlMeta } });
+      } catch {
+        //attemp dos
+        const res2 = await callModelWithTools(url, combined);
+        const parts2 = res2.candidates?.[0]?.content?.parts ?? [];
+        const combined2 =
+          parts2.map((p: any) => p.text ?? p.stringValue ?? "").join("\n") ||
+          res2.text ||
+          "";
+        let jsonText2 = extractJson(combined2);
+
+        try {
+          const parsed2 = JSON.parse(jsonText2);
+          const grounding = res2.candidates?.[0]?.groundingMetadata ?? null;
+          const urlMeta =
+            (res2.candidates?.[0] as any)?.urlContextMetadata ?? null;
+          return NextResponse.json({
+            ...parsed2,
+            debug: { grounding, urlMeta },
+          });
+        } catch {
+          try {
+            const repaired2 = jsonrepair(jsonText2);
+            const parsed2 = JSON.parse(repaired2);
+            const grounding = res2.candidates?.[0]?.groundingMetadata ?? null;
+            const urlMeta =
+              (res2.candidates?.[0] as any)?.urlContextMetadata ?? null;
+            return NextResponse.json({
+              ...parsed2,
+              debug: { grounding, urlMeta },
+            });
+          } catch {
+            return NextResponse.json(
+              { error: "Invalid json from model", raw: combined2 },
+              { status: 502 },
+            );
+          }
+        }
       }
     }
-
-    const biasScore = (biasCount / words.length) * 1000;
-    const reasons = Array.from(foundBiasedWords).map(word => `The word "${word}" can be a sign of bias.`);
-
-    if (reasons.length === 0) {
-      reasons.push("No obvious signs of biased language were found.");
-    }
-
-    return NextResponse.json({ score: biasScore, reasons });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Failed to analyze the URL' }, { status: 500 });
+  } catch (err: any) {
+    console.error(err);
+    return NextResponse.json(
+      { error: "Failed to analyze", details: err?.message ?? String(err) },
+      { status: 500 },
+    );
   }
 }

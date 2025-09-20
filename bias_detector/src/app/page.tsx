@@ -4,7 +4,10 @@ import { useState } from "react";
 
 export default function HomePage() {
   const [url, setUrl] = useState("");
-  const [analysis, setAnalysis] = useState<{ score: number; reasons: string[] } | null>(null);
+  const [analysis, setAnalysis] = useState<{
+    score: number;
+    reasons: string[];
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +34,9 @@ export default function HomePage() {
       const data = await response.json();
       setAnalysis(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred.");
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred.",
+      );
     } finally {
       setLoading(false);
     }
@@ -45,7 +50,8 @@ export default function HomePage() {
             Bias Detector
           </h1>
           <p className="mt-4 text-lg text-white/80">
-            Uncover potential bias in medical research papers and articles. Paste a URL to analyze the text for common indicators of bias.
+            Uncover potential bias in medical research papers and articles.
+            Paste a URL to analyze the text for common indicators of bias.
           </p>
         </div>
         <div className="w-full max-w-2xl">
@@ -71,12 +77,18 @@ export default function HomePage() {
               <h2 className="text-3xl font-bold">Analysis Results</h2>
               <div className="mt-4">
                 <p className="text-lg">
-                  <span className="font-bold">Bias Score:</span> {analysis.score.toFixed(2)}%
+                  <span className="font-bold">Bias Score:</span>{" "}
+                  {analysis?.score !== undefined
+                    ? analysis.score.toFixed(2) + "%"
+                    : "N/A"}
+                  %
                 </p>
                 <h3 className="mt-4 text-xl font-bold">Reasons:</h3>
                 <ul className="mt-2 list-disc pl-5">
-                  {analysis.reasons.map((reason, index) => (
-                    <li key={index} className="text-lg">{reason}</li>
+                  {analysis?.reasons?.map((reason, index) => (
+                    <li key={index} className="text-lg">
+                      {reason}
+                    </li>
                   ))}
                 </ul>
               </div>
