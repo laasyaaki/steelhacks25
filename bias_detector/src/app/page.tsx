@@ -6,7 +6,7 @@ export default function HomePage() {
   const [url, setUrl] = useState("");
   const [analysis, setAnalysis] = useState<{
     score: number;
-    reasons: string[];
+    justification: string;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export default function HomePage() {
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-            Bias Detector
+            The Bias Lens
           </h1>
           <p className="mt-4 text-lg text-white/80">
             Uncover potential bias in medical research papers and articles.
@@ -79,18 +79,13 @@ export default function HomePage() {
                 <p className="text-lg">
                   <span className="font-bold">Bias Score:</span>{" "}
                   {analysis?.score !== undefined
-                    ? analysis.score.toFixed(2) + "%"
+                    ? analysis.score.toFixed(2)
                     : "N/A"}
                   %
                 </p>
-                <h3 className="mt-4 text-xl font-bold">Reasons:</h3>
-                <ul className="mt-2 list-disc pl-5">
-                  {analysis?.reasons?.map((reason, index) => (
-                    <li key={index} className="text-lg">
-                      {reason}
-                    </li>
-                  ))}
-                </ul>
+                <h3 className="mt-4 text-xl font-bold">Justification:</h3>
+                <p>{analysis?.score}</p>
+                <p>{analysis?.justification}</p>
               </div>
             </div>
           )}

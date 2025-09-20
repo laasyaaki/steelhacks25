@@ -31,9 +31,9 @@ Output ONLY valid, minified JSON (no markdown, no backticks, no comments, no tra
 Begin with { and end with }.
 Schema:
 {
-  "biasScore": number,
+  "score": number,
   "verdict": "No issue" | "Possible gender-generalization bias" | "Likely gender-generalization bias",
-  "rationale": string,
+  "justification": string,
   "evidence": [{"quote": string, "section"?: string}],
   "citations": [{"title"?: string, "uri": string}]
 }
