@@ -1,35 +1,87 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
 
 export default function HomePage() {
+  const [url, setUrl] = useState("");
+  const [analysis, setAnalysis] = useState<{ score: number; reasons: string[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAnalyze = async () => {
+    if (!url) {
+      setError("Please enter a URL.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setAnalysis(null);
+
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze the URL.");
+      }
+
+      const data = await response.json();
+      setAnalysis(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unknown error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+    <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-        <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-          Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-        </h1>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-          <Link
-            className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-            href="https://create.t3.gg/en/usage/first-steps"
-            target="_blank"
-          >
-            <h3 className="text-2xl font-bold">First Steps →</h3>
-            <div className="text-lg">
-              Just the basics - Everything you need to know to set up your
-              database and authentication.
+        <div className="text-center">
+          <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
+            Bias Detector
+          </h1>
+          <p className="mt-4 text-lg text-white/80">
+            Uncover potential bias in medical research papers and articles. Paste a URL to analyze the text for common indicators of bias.
+          </p>
+        </div>
+        <div className="w-full max-w-2xl">
+          <div className="flex flex-col gap-4">
+            <input
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Enter URL of a research study..."
+              className="rounded-md bg-white/10 p-4 text-white placeholder:text-gray-400"
+            />
+            <button
+              onClick={handleAnalyze}
+              disabled={loading}
+              className="rounded-md bg-[hsl(280,100%,70%)] p-4 font-bold text-white hover:bg-[hsl(280,100%,60%)] disabled:opacity-50"
+            >
+              {loading ? "Analyzing..." : "Analyze"}
+            </button>
+          </div>
+          {error && <p className="mt-4 text-red-500">{error}</p>}
+          {analysis && (
+            <div className="mt-8 rounded-xl bg-white/10 p-6">
+              <h2 className="text-3xl font-bold">Analysis Results</h2>
+              <div className="mt-4">
+                <p className="text-lg">
+                  <span className="font-bold">Bias Score:</span> {analysis.score.toFixed(2)}%
+                </p>
+                <h3 className="mt-4 text-xl font-bold">Reasons:</h3>
+                <ul className="mt-2 list-disc pl-5">
+                  {analysis.reasons.map((reason, index) => (
+                    <li key={index} className="text-lg">{reason}</li>
+                  ))}
+                </ul>
+              </div>
             </div>
-          </Link>
-          <Link
-            className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 text-white hover:bg-white/20"
-            href="https://create.t3.gg/en/introduction"
-            target="_blank"
-          >
-            <h3 className="text-2xl font-bold">Documentation →</h3>
-            <div className="text-lg">
-              Learn more about Create T3 App, the libraries it uses, and how to
-              deploy it.
-            </div>
-          </Link>
+          )}
         </div>
       </div>
     </main>
