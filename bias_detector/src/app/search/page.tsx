@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type {
+  EvidenceItem,
+  BiasAnalysis,
+  JustificationSection,
+} from "~/types/analysis";
 
 interface PubMedResult {
   pmid: string;
@@ -19,11 +24,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<{
-    score: number;
-    justification: string;
-    evidence?: Array<{ quote: string; section?: string }>;
-  } | null>(null);
+  const [analysis, setAnalysis] = useState<BiasAnalysis | null>(null);
   const [analyzedStudyId, setAnalyzedStudyId] = useState<string | null>(null);
 
   const searchPubMed = async () => {
@@ -38,7 +39,9 @@ export default function SearchPage() {
 
     try {
       // PubMed E-utilities API
-      const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=10&retmode=json`;
+      const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(
+        query,
+      )}&retmax=10&retmode=json`;
 
       const searchResponse = await fetch(searchUrl);
       const searchData = await searchResponse.json();
@@ -72,7 +75,7 @@ export default function SearchPage() {
     const articleMatches =
       xmlText.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || [];
 
-    articleMatches.forEach((article, index) => {
+    articleMatches.forEach((article) => {
       const pmidMatch = article.match(/<PMID[^>]*>(\d+)<\/PMID>/);
       const titleMatch = article.match(
         /<ArticleTitle[^>]*>([^<]+)<\/ArticleTitle>/,
@@ -110,11 +113,8 @@ export default function SearchPage() {
           pmid: pmid as string,
           title: titleMatch[1] ?? "Unknown title",
           authors,
-          journal:
-            journalMatch && journalMatch[1]
-              ? journalMatch[1]
-              : "Unknown journal",
-          pubDate: dateMatch && dateMatch[1] ? dateMatch[1] : "Unknown date",
+          journal: journalMatch?.[1] ?? "Unknown journal",
+          pubDate: dateMatch?.[1] ?? "Unknown date",
           abstract: abstractMatch ? abstractMatch[1] : undefined,
           url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
         });
@@ -134,14 +134,19 @@ export default function SearchPage() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: result.url, type: "url" }),
+        body: JSON.stringify({ url: result.url }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to analyze the study.");
+        let msg = "Failed to analyze the study.";
+        try {
+          const maybe = await response.json();
+          if (maybe?.error) msg = maybe.error;
+        } catch {}
+        throw new Error(msg);
       }
 
-      const data = await response.json();
+      const data: BiasAnalysis = await response.json();
       setAnalysis(data);
       setAnalyzedStudyId(result.pmid);
     } catch (err) {
@@ -151,6 +156,35 @@ export default function SearchPage() {
     } finally {
       setAnalyzingId(null);
     }
+  };
+
+  const SectionBlock = ({
+    title,
+    section,
+  }: {
+    title: string;
+    section: JustificationSection;
+  }) => {
+    return (
+      <div className="bg-white/5 p-4">
+        <h6 className="mb-2 font-semibold">{title}</h6>
+        <p className="mb-3 text-white/80">{section.summary}</p>
+        {section.evidence?.length > 0 && (
+          <div className="space-y-2">
+            {section.evidence.map((ev, i) => (
+              <div key={i} className="bg-white/5 p-3">
+                <p className="text-sm italic">"{ev.quote}"</p>
+                {ev.section && (
+                  <p className="mt-1 text-xs text-white/60">
+                    Section: {ev.section}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -240,42 +274,38 @@ export default function SearchPage() {
                         Analysis Results
                       </h4>
                       <div className="space-y-4">
-                        <div>
+                        <div className="flex flex-wrap items-center gap-3">
                           <p className="text-lg">
                             <span className="font-bold">Bias Score:</span>{" "}
-                            {analysis?.score !== undefined
-                              ? analysis.score.toFixed(2)
-                              : "N/A"}
-                            %
+                            {analysis.biasScore}
+                          </p>
+                          <p className="text-white/80">
+                            ({analysis.biasMeaning})
                           </p>
                         </div>
 
-                        <div>
-                          <h5 className="text-lg font-bold">Justification:</h5>
-                          <p className="mt-2 text-white/80">
-                            {analysis.justification}
-                          </p>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <SectionBlock
+                            title="Sample Representation"
+                            section={
+                              analysis.justification.sampleRepresentation
+                            }
+                          />
+                          <SectionBlock
+                            title="Inclusion in Analysis"
+                            section={analysis.justification.inclusionInAnalysis}
+                          />
+                          <SectionBlock
+                            title="Study Outcomes"
+                            section={analysis.justification.studyOutcomes}
+                          />
+                          <SectionBlock
+                            title="Methodological Fairness"
+                            section={
+                              analysis.justification.methodologicalFairness
+                            }
+                          />
                         </div>
-
-                        {analysis.evidence && analysis.evidence.length > 0 && (
-                          <div>
-                            <h5 className="text-lg font-bold">Evidence:</h5>
-                            <div className="mt-2 space-y-2">
-                              {analysis.evidence.map((item, index) => (
-                                <div key={index} className="bg-white/5 p-3">
-                                  <p className="text-sm italic">
-                                    "{item.quote}"
-                                  </p>
-                                  {item.section && (
-                                    <p className="mt-1 text-xs text-white/60">
-                                      Section: {item.section}
-                                    </p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}

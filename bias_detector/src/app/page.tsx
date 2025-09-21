@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { JustificationSection, BiasAnalysis } from "~/types/analysis";
 
 export default function HomePage() {
   const [url, setUrl] = useState("");
-  const [analysis, setAnalysis] = useState<{
-    score: number;
-    justification: string;
-  } | null>(null);
+  const [analysis, setAnalysis] = useState<BiasAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,10 +34,15 @@ export default function HomePage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to analyze the URL.");
+        let msg = "Failed to analyze the URL.";
+        try {
+          const maybe = await response.json();
+          if (maybe?.error) msg = maybe.error;
+        } catch {}
+        throw new Error(msg);
       }
 
-      const data = await response.json();
+      const data: BiasAnalysis = await response.json();
       setAnalysis(data);
     } catch (err) {
       setError(
@@ -49,6 +52,33 @@ export default function HomePage() {
       setLoading(false);
     }
   };
+
+  const SectionBlock = ({
+    title,
+    section,
+  }: {
+    title: string;
+    section: JustificationSection;
+  }) => (
+    <div className="bg-white/5 p-4">
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      <p className="mb-3 text-white/80">{section.summary}</p>
+      {section.evidence?.length > 0 && (
+        <div className="space-y-2">
+          {section.evidence.map((ev, i) => (
+            <div key={i} className="bg-white/5 p-3">
+              <p className="text-sm italic">"{ev.quote}"</p>
+              {ev.section && (
+                <p className="mt-1 text-xs text-white/60">
+                  Section: {ev.section}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#1C4073] to-[#43658C] text-white">
@@ -62,7 +92,7 @@ export default function HomePage() {
             Paste a URL to analyze the text for common indicators of bias.
           </p>
         </div>
-        <div className="w-full max-w-2xl">
+        <div className="w-full">
           <div className="flex flex-col gap-4">
             <input
               type="text"
@@ -70,6 +100,7 @@ export default function HomePage() {
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Enter URL of a medical study..."
               className="bg-white/10 p-4 text-white placeholder:text-gray-400"
+              onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
             />
             <div className="flex gap-4">
               <button
@@ -89,19 +120,35 @@ export default function HomePage() {
           </div>
           {error && <p className="mt-4 text-red-500">{error}</p>}
           {analysis && (
-            <div className="mt-8 rounded-xl bg-white/10 p-6">
+            <div className="mt-8 w-full bg-white/10 p-6">
               <h2 className="text-3xl font-bold">Analysis Results</h2>
-              <div className="mt-4">
-                <p className="text-lg">
-                  <span className="font-bold">Bias Score:</span>{" "}
-                  {analysis?.score !== undefined
-                    ? analysis.score.toFixed(2)
-                    : "N/A"}
-                  %
-                </p>
-                <h3 className="mt-4 text-xl font-bold">Justification:</h3>
-                <p>{analysis?.score}</p>
-                <p>{analysis?.justification}</p>
+              <div className="mt-4 space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-lg">
+                    <span className="font-bold">Bias Score:</span>{" "}
+                    {analysis.biasScore}
+                  </p>
+                  <p className="text-white/80">({analysis.biasMeaning})</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <SectionBlock
+                    title="Sample Representation"
+                    section={analysis.justification.sampleRepresentation}
+                  />
+                  <SectionBlock
+                    title="Inclusion in Analysis"
+                    section={analysis.justification.inclusionInAnalysis}
+                  />
+                  <SectionBlock
+                    title="Study Outcomes"
+                    section={analysis.justification.studyOutcomes}
+                  />
+                  <SectionBlock
+                    title="Methodological Fairness"
+                    section={analysis.justification.methodologicalFairness}
+                  />
+                </div>
               </div>
             </div>
           )}

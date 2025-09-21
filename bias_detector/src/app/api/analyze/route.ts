@@ -32,27 +32,84 @@ Output ONLY valid, minified JSON (no markdown, no backticks, no comments, no tra
 Begin with { and end with }.
 Schema:
 {
-  "score": number,
-  "justification": string,
-  "evidence": [{"quote": string, "section"?: string}],
+  "biasScore": "number",
+  "biasMeaning": "string",
+  "justification": {
+    "sampleRepresentation": {
+      "summary": "string",
+      "evidence": [
+        {
+          "quote": "string",
+          "section": "string"
+        }
+      ]
+    },
+    "inclusionInAnalysis": {
+      "summary": "string",
+      "evidence": [
+        {
+          "quote": "string",
+          "section": "string"
+        }
+      ]
+    },
+    "studyOutcomes": {
+      "summary": "string",
+      "evidence": [
+        {
+          "quote": "string",
+          "section": "string"
+        }
+      ]
+    },
+    "methodologicalFairness": {
+      "summary": "string",
+      "evidence": [
+        {
+          "quote": "string",
+          "section": "string"
+        }
+      ]
+    }
+  }
 }
 `.trim();
 
   const task = reformulateFrom
     ? `Reformat the following answer into STRICT JSON ONLY, adhering to the schema. Do not add any text outside JSON:\n\n${reformulateFrom}`
     : `Task: "Is this biased?"
-Analyze the study at ${url}.
-Focus on participants' sex/gender distribution and whether conclusions over-generalize beyond the sampled gender.
+Objective:
+For the article at ${url}, calculate a gender bias score and provide a detailed justification for that score, following the specified schema and rules.
 
-Rules:
-- Extract sex/gender counts or state if missing.
-- If one sex ≥ 80% AND conclusions generalize to "people/patients/everyone" without explicit sex limitation → bias.
-- Score:
-  80 = clear over-generalization with ≥80% single-sex
-  60 = 60-79% skew + generalization
-  40 = generalization with near-balanced sample
-  20 = balanced with no issue
-  10 = authors clearly limit scope to sampled sex
+Error Handling Rules:
+If the article content appears unreadable or inaccessible:
+"The article content appears unreadable or inaccessible at this moment. Please ensure the text is clear and try again."
+If the article is not a medical research article:
+"This tool is optimized for analyzing medical research articles where specific types of bias may occur. Non-medical research content cannot be processed."
+If there is insufficient gender-specific data to make a judgment:
+"Insufficient gender-specific data is present within the article to conduct a thorough analysis of gender bias. Please ensure relevant demographic and analytical details are provided."
+
+Descriptions for Bias Scores (for biasMeaning field):
+Bias Score 1: Not Biased
+Description: Gender representation is balanced or accurately reflects the population; both genders are included and analyzed equitably.
+
+
+Bias Score 2: Minor Bias
+Description: Slight gender imbalance in the sample, acknowledged as a minor limitation; unlikely to significantly impact main conclusions.
+
+
+Bias Score 3: Moderate Bias
+Description: Noticeable gender imbalance, potentially affecting generalizability to the broader population; implications not fully addressed.
+
+
+Bias Score 4: Significant Bias
+Description: Pronounced gender disparity, making findings largely applicable to only one gender; generalization to the underrepresented gender is unreliable.
+
+
+Bias Score 5: Severe Bias / Exclusionary
+Description: One gender is almost entirely or completely excluded, rendering findings applicable solely to the studied gender.
+
+
 Return STRICT JSON ONLY.`;
 
   const contents = [
