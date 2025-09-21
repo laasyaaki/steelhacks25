@@ -51,7 +51,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+    <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#1C4073] to-[#43658C] text-white">
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
@@ -69,13 +69,13 @@ export default function HomePage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Enter URL of a medical study..."
-              className="rounded-md bg-white/10 p-4 text-white placeholder:text-gray-400"
+              className="rounded-sm bg-white/10 p-4 text-white placeholder:text-gray-400"
             />
             <div className="flex gap-4">
               <button
                 onClick={handleAnalyze}
                 disabled={loading}
-                className="flex-1 rounded-md bg-[hsl(280,100%,70%)] p-4 font-bold text-white hover:bg-[hsl(280,100%,60%)] disabled:opacity-50"
+                className="flex-1 rounded-sm bg-[#0A355E] p-4 font-bold text-white hover:bg-white disabled:opacity-50"
               >
                 {loading ? "Analyzing..." : "Analyze"}
               </button>

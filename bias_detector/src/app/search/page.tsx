@@ -154,7 +154,7 @@ export default function SearchPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
+    <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#1C4073] to-[#43658C] text-white">
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
@@ -174,13 +174,13 @@ export default function SearchPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for medical studies..."
-                className="flex-1 rounded-md bg-white/10 p-4 text-white placeholder:text-gray-400"
+                className="flex-1 rounded-sm bg-white/10 p-4 text-white placeholder:text-gray-400"
                 onKeyDown={(e) => e.key === "Enter" && searchPubMed()}
               />
               <button
                 onClick={searchPubMed}
                 disabled={loading}
-                className="rounded-md bg-[hsl(280,100%,70%)] p-4 font-bold text-white hover:bg-[hsl(280,100%,60%)] disabled:opacity-50"
+                className="rounded-sm bg-[#0A355E] p-4 font-bold text-white disabled:opacity-50"
               >
                 {loading ? "Searching..." : "Search"}
               </button>
@@ -227,7 +227,7 @@ export default function SearchPage() {
                     <button
                       onClick={() => analyzeStudy(result)}
                       disabled={analyzingId === result.pmid}
-                      className="rounded-md bg-[hsl(280,100%,70%)] px-4 py-2 font-bold whitespace-nowrap text-white hover:bg-[hsl(280,100%,60%)] disabled:opacity-50"
+                      className="rounded-sm bg-[#0A355E] px-4 py-2 font-bold whitespace-nowrap text-white hover:bg-white disabled:opacity-50"
                     >
                       {analyzingId === result.pmid ? "Analyzing..." : "Analyze"}
                     </button>
@@ -264,7 +264,7 @@ export default function SearchPage() {
                               {analysis.evidence.map((item, index) => (
                                 <div
                                   key={index}
-                                  className="rounded-md bg-white/5 p-3"
+                                  className="rounded-sm bg-white/5 p-3"
                                 >
                                   <p className="text-sm italic">
                                     "{item.quote}"
