@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from '@/context/AuthContext';
+import Sidebar from '@/components/Sidebar';
 
 interface PubMedResult {
   pmid: string;
@@ -11,6 +13,16 @@ interface PubMedResult {
   pubDate: string;
   abstract?: string;
   url: string;
+}
+
+interface Analysis {
+  id: string;
+  url: string;
+  biasScore: number;
+  createdAt: {
+    _seconds: number;
+    _nanoseconds: number;
+  };
 }
 
 export default function SearchPage() {
@@ -25,6 +37,62 @@ export default function SearchPage() {
     evidence?: Array<{ quote: string; section?: string }>;
   } | null>(null);
   const [analyzedStudyId, setAnalyzedStudyId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Sidebar state
+
+  const { user, loading: authLoading } = useAuth();
+  const [userAnalyses, setUserAnalyses] = useState<Analysis[]>([]); // State for user's analysis history
+  const [analysesLoading, setAnalysesLoading] = useState(true);
+  const [analysesError, setAnalysesError] = useState<string | null>(null);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      // router.push('/login'); // Assuming you want to redirect if not logged in
+    }
+  }, [user, authLoading]);
+
+  // Fetch user's analysis history
+  useEffect(() => {
+    const fetchUserAnalyses = async () => {
+      if (!user) {
+        setAnalysesLoading(false);
+        return;
+      }
+
+      setAnalysesLoading(true);
+      setAnalysesError(null);
+
+      try {
+        const idToken = await user.getIdToken();
+        const response = await fetch('/api/analyses', {
+          headers: {
+            'Authorization': `Bearer ${idToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user analyses.');
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          setUserAnalyses(data.data);
+        } else {
+          throw new Error(data.error || 'Unknown error fetching user analyses.');
+        }
+      } catch (err) {
+        setAnalysesError(err instanceof Error ? err.message : 'An unknown error occurred.');
+      } finally {
+        setAnalysesLoading(false);
+      }
+    };
+
+    fetchUserAnalyses();
+  }, [user]);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   const searchPubMed = async () => {
     if (!query.trim()) {
@@ -125,25 +193,53 @@ export default function SearchPage() {
   };
 
   const analyzeStudy = async (result: PubMedResult) => {
+    if (!user) {
+      setError("Please log in to analyze studies.");
+      return;
+    }
+
     setAnalyzingId(result.pmid);
     setError(null);
     setAnalysis(null);
     setAnalyzedStudyId(null);
 
     try {
-      const response = await fetch("/api/analyze", {
+      // Simulate bias analysis
+      const simulatedScore = Math.floor(Math.random() * 100); // Random score between 0 and 99
+      const simulatedJustification = `This is a simulated justification for bias score ${simulatedScore}%.`;
+
+      const idToken = await user.getIdToken();
+      const response = await fetch("/api/analyses", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: result.url, type: "url" }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          url: result.url,
+          biasScore: simulatedScore,
+          justification: simulatedJustification,
+          title: result.title, // Include title for better history display
+        }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to analyze the study.");
+        throw new Error("Failed to analyze and save the study.");
       }
 
       const data = await response.json();
-      setAnalysis(data);
-      setAnalyzedStudyId(result.pmid);
+      if (data.success) {
+        setAnalysis({
+          score: simulatedScore,
+          justification: simulatedJustification,
+        });
+        setAnalyzedStudyId(result.pmid);
+        // Refresh user analyses after a new one is added
+        // This is a simple way to trigger re-fetch in useEffect
+        setUserAnalyses(prev => [...prev, { id: data.data.id, url: result.url, biasScore: simulatedScore, createdAt: { _seconds: Date.now()/1000, _nanoseconds: 0 } }]);
+      } else {
+        throw new Error(data.error || "Unknown error saving analysis.");
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred.",
@@ -155,6 +251,25 @@ export default function SearchPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#1C4073] to-[#43658C] text-white">
+      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+      <div className="absolute top-4 left-4 z-10">
+        <button onClick={toggleSidebar} className="text-white focus:outline-none">
+          <svg
+            className="w-8 h-8"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            ></path>
+          </svg>
+        </button>
+      </div>
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
@@ -283,6 +398,8 @@ export default function SearchPage() {
               ))}
             </div>
           )}
+
+          {/* User Analysis History Section */}
         </div>
       </div>
     </main>
