@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import Link from 'next/link';
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import Link from "next/link";
 
 interface Analysis {
   id: string;
   url: string;
-  biasScore: number;
+  biasScore: string;
   justification: string; // Added justification
   title?: string; // Added title (optional)
   createdAt: {
@@ -39,24 +39,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
       try {
         const idToken = await user.getIdToken();
-        const response = await fetch('/api/analyses', {
+        const response = await fetch("/api/analyses", {
           headers: {
-            'Authorization': `Bearer ${idToken}`,
+            Authorization: `Bearer ${idToken}`,
           },
         });
 
         if (!response.ok) {
-          throw new Error('Failed to fetch analyses.');
+          throw new Error("Failed to fetch analyses.");
         }
 
         const data = await response.json();
         if (data.success) {
           setAnalyses(data.data);
         } else {
-          throw new Error(data.error || 'Unknown error fetching analyses.');
+          throw new Error(data.error || "Unknown error fetching analyses.");
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setError(
+          err instanceof Error ? err.message : "An unknown error occurred.",
+        );
       } finally {
         setLoading(false);
       }
@@ -67,13 +69,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
   return (
     <div
-      className={`fixed inset-y-0 left-0 z-50 w-64 bg-gray-800 text-white transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}
+      className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-gray-800 text-white ${isOpen ? "translate-x-0" : "-translate-x-full"} transition-transform duration-300 ease-in-out`}
     >
-      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+      <div className="flex items-center justify-between border-b border-gray-700 p-4">
         <h2 className="text-xl font-semibold">Your Analyses</h2>
-        <button onClick={toggleSidebar} className="text-gray-400 hover:text-white">
+        <button
+          onClick={toggleSidebar}
+          className="text-gray-400 hover:text-white"
+        >
           <svg
-            className="w-6 h-6"
+            className="h-6 w-6"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -98,15 +103,23 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
         {user && analyses.length > 0 && (
           <ul>
             {analyses.map((analysis) => (
-              <li key={analysis.id} className="mb-2 p-2 rounded-md bg-gray-700">
-                <p className="text-sm font-semibold truncate">{analysis.title || analysis.url}</p>
-                <a href={analysis.url} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:underline block text-xs truncate">
+              <li key={analysis.id} className="mb-2 rounded-md bg-gray-700 p-2">
+                <p className="truncate text-sm font-semibold">
+                  {analysis.title || analysis.url}
+                </p>
+                <a
+                  href={analysis.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block truncate text-xs text-blue-300 hover:underline"
+                >
                   {analysis.url}
                 </a>
-                <p className="text-sm">Bias Score: {analysis.biasScore.toFixed(2)}%</p>
-                {/* Removed justification display */}
+                <p className="text-sm">Bias Score: {analysis.biasScore}</p>
                 <p className="text-xs text-gray-400">
-                  {new Date(analysis.createdAt._seconds * 1000).toLocaleString()}
+                  {new Date(
+                    analysis.createdAt._seconds * 1000,
+                  ).toLocaleString()}
                 </p>
               </li>
             ))}

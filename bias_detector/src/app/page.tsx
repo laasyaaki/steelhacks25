@@ -2,16 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import Sidebar from '@/components/Sidebar';
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import Sidebar from "@/components/Sidebar";
+import type { JustificationSection, BiasAnalysis } from "../types/analysis";
 
 export default function HomePage() {
   const [url, setUrl] = useState("");
-  const [analysis, setAnalysis] = useState<{
-    score: number;
-    justification: string;
-  } | null>(null);
+  const [analysis, setAnalysis] = useState<BiasAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -21,7 +19,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/login');
+      router.push("/login");
     }
   }, [user, authLoading, router]);
 
@@ -33,9 +31,7 @@ export default function HomePage() {
     );
   }
 
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
+  const toggleSidebar = () => setSidebarOpen((s) => !s);
 
   const handleAnalyze = async () => {
     if (!url) {
@@ -43,9 +39,11 @@ export default function HomePage() {
       return;
     }
     try {
-      const checkUrl = new URL(url);
-    } catch (err) {
-      setError("Please enter valid URL.");
+      // Throws if invalid
+      const parsed = new URL(url);
+      if (!/^https?:/i.test(parsed.protocol)) throw new Error();
+    } catch {
+      setError("Please enter a valid URL (including http/https).");
       return;
     }
 
@@ -54,36 +52,58 @@ export default function HomePage() {
     setAnalysis(null);
 
     try {
-      const simulatedScore = Math.floor(Math.random() * 100);
-      const simulatedJustification = `This is a simulated justification for bias score ${simulatedScore}%.`;
-
       const idToken = await user.getIdToken();
-      const response = await fetch("/api/analyses", {
+
+      const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`,
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!analyzeRes.ok) {
+        let msg = "Failed to analyze the URL.";
+        try {
+          const maybe = await analyzeRes.json();
+          if (maybe?.error) msg = maybe.error;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      const ai = (await analyzeRes.json()) as BiasAnalysis & {
+        debug?: unknown;
+      };
+
+      const saveRes = await fetch("/api/analyses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
         },
         body: JSON.stringify({
           url,
-          biasScore: simulatedScore,
-          justification: simulatedJustification,
+          biasScore: ai.biasScore,
+          biasMeaning: ai.biasMeaning,
+          justification: ai.justification,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to analyze and save the URL.");
+      if (!saveRes.ok) {
+        let msg = "Failed to save the analysis.";
+        try {
+          const maybe = await saveRes.json();
+          if (maybe?.error) msg = maybe.error;
+        } catch {}
+        throw new Error(msg);
       }
 
-      const data = await response.json();
-      if (data.success) {
-        setAnalysis({
-          score: simulatedScore,
-          justification: simulatedJustification,
-        });
-      } else {
-        throw new Error(data.error || "Unknown error saving analysis.");
-      }
+      setAnalysis({
+        biasScore: ai.biasScore,
+        biasMeaning: ai.biasMeaning,
+        justification: ai.justification,
+      });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred.",
@@ -93,13 +113,43 @@ export default function HomePage() {
     }
   };
 
+  const SectionBlock = ({
+    title,
+    section,
+  }: {
+    title: string;
+    section: JustificationSection;
+  }) => (
+    <div className="bg-white/5 p-4">
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      <p className="mb-3 text-white/80">{section.summary}</p>
+      {section.evidence?.length > 0 && (
+        <div className="space-y-2">
+          {section.evidence.map((ev, i) => (
+            <div key={i} className="bg-white/5 p-3">
+              <p className="text-sm italic">"{ev.quote}"</p>
+              {ev.section && (
+                <p className="mt-1 text-xs text-white/60">
+                  Section: {ev.section}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#1C4073] to-[#43658C] text-white">
       <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
       <div className="absolute top-4 left-4 z-10">
-        <button onClick={toggleSidebar} className="text-white focus:outline-none">
+        <button
+          onClick={toggleSidebar}
+          className="text-white focus:outline-none"
+        >
           <svg
-            className="w-8 h-8"
+            className="h-8 w-8"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -114,7 +164,8 @@ export default function HomePage() {
           </svg>
         </button>
       </div>
-      {/* Moved Auth buttons to top right */}
+
+      {/* Auth buttons top-right */}
       <div className="absolute top-8 right-4 z-10 flex items-center gap-4">
         {user ? (
           <>
@@ -127,11 +178,15 @@ export default function HomePage() {
             </button>
           </>
         ) : (
-          <Link href="/login" className="rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600">
+          <Link
+            href="/login"
+            className="rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
+          >
             Login / Register
           </Link>
         )}
       </div>
+
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
@@ -142,14 +197,19 @@ export default function HomePage() {
             Paste a URL to analyze the text for common indicators of bias.
           </p>
         </div>
-        <div className="w-full max-w-2xl">
+
+        <div className="w-full">
           <div className="flex flex-col gap-4">
             <input
               type="text"
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                if (error) setError(null);
+              }}
               placeholder="Enter URL of a medical study..."
               className="bg-white/10 p-4 text-white placeholder:text-gray-400"
+              onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
             />
             <div className="flex gap-4">
               <button
@@ -160,6 +220,7 @@ export default function HomePage() {
                 {loading ? "Analyzing..." : "Analyze"}
               </button>
             </div>
+
             <Link
               href="/search"
               className="text-center text-white/70 transition-colors hover:text-white"
@@ -167,21 +228,39 @@ export default function HomePage() {
               Search for Topics Instead →
             </Link>
           </div>
+
           {error && <p className="mt-4 text-red-500">{error}</p>}
+
           {analysis && (
-            <div className="mt-8 rounded-xl bg-white/10 p-6">
+            <div className="mt-8 w-full bg-white/10 p-6">
               <h2 className="text-3xl font-bold">Analysis Results</h2>
-              <div className="mt-4">
-                <p className="text-lg">
-                  <span className="font-bold">Bias Score:</span>{" "}
-                  {analysis?.score !== undefined
-                    ? analysis.score.toFixed(2)
-                    : "N/A"}
-                  %
-                </p>
-                <h3 className="mt-4 text-xl font-bold">Justification:</h3>
-                <p>{analysis?.score}</p>
-                <p>{analysis?.justification}</p>
+              <div className="mt-4 space-y-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-lg">
+                    <span className="font-bold">Bias Score:</span>{" "}
+                    {analysis.biasScore}
+                  </p>
+                  <p className="text-white/80">({analysis.biasMeaning})</p>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <SectionBlock
+                    title="Sample Representation"
+                    section={analysis.justification.sampleRepresentation}
+                  />
+                  <SectionBlock
+                    title="Inclusion in Analysis"
+                    section={analysis.justification.inclusionInAnalysis}
+                  />
+                  <SectionBlock
+                    title="Study Outcomes"
+                    section={analysis.justification.studyOutcomes}
+                  />
+                  <SectionBlock
+                    title="Methodological Fairness"
+                    section={analysis.justification.methodologicalFairness}
+                  />
+                </div>
               </div>
             </div>
           )}
