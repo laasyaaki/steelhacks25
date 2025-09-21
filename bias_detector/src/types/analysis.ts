@@ -9,7 +9,7 @@ export interface JustificationSection {
 }
 
 export interface BiasAnalysis {
-  biasScore: number; // 1-5
+  biasScore: string; // 1-5
   biasMeaning: string;
   justification: {
     sampleRepresentation: JustificationSection;

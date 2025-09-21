@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+import Sidebar from "@/components/Sidebar";
 import type {
   EvidenceItem,
   BiasAnalysis,
   JustificationSection,
-} from "~/types/analysis";
+} from "../../types/analysis";
 
 interface PubMedResult {
   pmid: string;
@@ -18,6 +20,16 @@ interface PubMedResult {
   url: string;
 }
 
+interface Analysis {
+  id: string;
+  url: string;
+  biasScore: string;
+  createdAt: {
+    _seconds: number;
+    _nanoseconds: number;
+  };
+}
+
 export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PubMedResult[]>([]);
@@ -26,6 +38,66 @@ export default function SearchPage() {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<BiasAnalysis | null>(null);
   const [analyzedStudyId, setAnalyzedStudyId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Sidebar state
+
+  const { user, loading: authLoading } = useAuth();
+  const [userAnalyses, setUserAnalyses] = useState<Analysis[]>([]); // State for user's analysis history
+  const [analysesLoading, setAnalysesLoading] = useState(true);
+  const [analysesError, setAnalysesError] = useState<string | null>(null);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      // router.push('/login'); // Assuming you want to redirect if not logged in
+    }
+  }, [user, authLoading]);
+
+  // Fetch user's analysis history
+  useEffect(() => {
+    const fetchUserAnalyses = async () => {
+      if (!user) {
+        setAnalysesLoading(false);
+        return;
+      }
+
+      setAnalysesLoading(true);
+      setAnalysesError(null);
+
+      try {
+        const idToken = await user.getIdToken();
+        const response = await fetch("/api/analyses", {
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch user analyses.");
+        }
+
+        const data = await response.json();
+        if (data.success) {
+          setUserAnalyses(data.data);
+        } else {
+          throw new Error(
+            data.error || "Unknown error fetching user analyses.",
+          );
+        }
+      } catch (err) {
+        setAnalysesError(
+          err instanceof Error ? err.message : "An unknown error occurred.",
+        );
+      } finally {
+        setAnalysesLoading(false);
+      }
+    };
+
+    fetchUserAnalyses();
+  }, [user]);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   const searchPubMed = async () => {
     if (!query.trim()) {
@@ -125,30 +197,89 @@ export default function SearchPage() {
   };
 
   const analyzeStudy = async (result: PubMedResult) => {
+    if (!user) {
+      setError("Please log in to analyze studies.");
+      return;
+    }
+
     setAnalyzingId(result.pmid);
     setError(null);
     setAnalysis(null);
     setAnalyzedStudyId(null);
 
     try {
-      const response = await fetch("/api/analyze", {
+      const idToken = await user.getIdToken();
+
+      const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({ url: result.url }),
       });
 
-      if (!response.ok) {
+      if (!analyzeRes.ok) {
         let msg = "Failed to analyze the study.";
         try {
-          const maybe = await response.json();
+          const maybe = await analyzeRes.json();
           if (maybe?.error) msg = maybe.error;
         } catch {}
         throw new Error(msg);
       }
 
-      const data: BiasAnalysis = await response.json();
-      setAnalysis(data);
+      const ai = (await analyzeRes.json()) as BiasAnalysis & {
+        debug?: unknown;
+      };
+
+      const saveRes = await fetch("/api/analyses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          url: result.url,
+          title: result.title,
+          biasScore: ai.biasScore,
+          biasMeaning: ai.biasMeaning,
+          justification: ai.justification,
+        }),
+      });
+
+      if (!saveRes.ok) {
+        let msg = "Failed to save the analysis.";
+        try {
+          const maybe = await saveRes.json();
+          if (maybe?.error) msg = maybe.error;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      const saved = await saveRes.json();
+
+      setAnalysis({
+        biasScore: ai.biasScore,
+        biasMeaning: ai.biasMeaning,
+        justification: ai.justification,
+      } as BiasAnalysis);
+
       setAnalyzedStudyId(result.pmid);
+
+      if (saved?.success && saved?.data?.id) {
+        setUserAnalyses((prev) => [
+          ...prev,
+          {
+            id: saved.data.id,
+            url: result.url,
+            biasScore: ai.biasScore,
+            createdAt: {
+              _seconds: Math.floor(Date.now() / 1000),
+              _nanoseconds: 0,
+            },
+          },
+        ]);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred.",
@@ -189,6 +320,28 @@ export default function SearchPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center bg-gradient-to-b from-[#1C4073] to-[#43658C] text-white">
+      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+      <div className="absolute top-4 left-4 z-10">
+        <button
+          onClick={toggleSidebar}
+          className="text-white focus:outline-none"
+        >
+          <svg
+            className="h-8 w-8"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            ></path>
+          </svg>
+        </button>
+      </div>
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
@@ -313,6 +466,8 @@ export default function SearchPage() {
               ))}
             </div>
           )}
+
+          {/* User Analysis History Section */}
         </div>
       </div>
     </main>
