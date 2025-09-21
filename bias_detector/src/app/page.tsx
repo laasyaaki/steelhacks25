@@ -17,6 +17,13 @@ export default function HomePage() {
       setError("Please enter a URL.");
       return;
     }
+    try {
+      const checkUrl = new URL(url);
+    } catch (err) {
+      setError("Please enter valid URL.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setAnalysis(null);
@@ -61,7 +68,7 @@ export default function HomePage() {
               type="text"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="Enter URL of a research study..."
+              placeholder="Enter URL of a medical study..."
               className="rounded-md bg-white/10 p-4 text-white placeholder:text-gray-400"
             />
             <div className="flex gap-4">
@@ -72,13 +79,13 @@ export default function HomePage() {
               >
                 {loading ? "Analyzing..." : "Analyze"}
               </button>
-              <Link
-                href="/search"
-                className="rounded-md bg-white/10 p-4 font-bold text-white transition-colors hover:bg-white/20"
-              >
-                Search instead
-              </Link>
             </div>
+            <Link
+              href="/search"
+              className="text-center text-white/70 transition-colors hover:text-white"
+            >
+              Search for Topics Instead →
+            </Link>
           </div>
           {error && <p className="mt-4 text-red-500">{error}</p>}
           {analysis && (

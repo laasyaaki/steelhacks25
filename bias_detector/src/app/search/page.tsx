@@ -58,14 +58,14 @@ export default function SearchPage() {
       setResults(parsedResults);
     } catch (err) {
       console.error("Search error:", err);
-      setError("Failed to search PubMed. Please try again.");
+      setError("Failed to search. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   //i know it looks cursed lol but it's for good formatting
-  //used claude to help me make this crazy fomatter
+  //used claude to help me make this crazy XML parser
   const parsePubMedXML = (xmlText: string): PubMedResult[] => {
     const results: PubMedResult[] = [];
 
@@ -158,10 +158,11 @@ export default function SearchPage() {
       <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
         <div className="text-center">
           <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-[5rem]">
-            PubMed Search
+            Medical Study Search
           </h1>
           <p className="mt-4 text-lg text-white/80">
-            Search for medical research studies and analyze them for bias.
+            Search for medical research studies and uncover any potential
+            biases.
           </p>
         </div>
 
@@ -172,7 +173,7 @@ export default function SearchPage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search PubMed for medical studies..."
+                placeholder="Search for medical studies..."
                 className="flex-1 rounded-md bg-white/10 p-4 text-white placeholder:text-gray-400"
                 onKeyDown={(e) => e.key === "Enter" && searchPubMed()}
               />
