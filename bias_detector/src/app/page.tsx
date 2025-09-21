@@ -69,13 +69,13 @@ export default function HomePage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="Enter URL of a medical study..."
-              className="rounded-sm bg-white/10 p-4 text-white placeholder:text-gray-400"
+              className="bg-white/10 p-4 text-white placeholder:text-gray-400"
             />
             <div className="flex gap-4">
               <button
                 onClick={handleAnalyze}
                 disabled={loading}
-                className="flex-1 rounded-sm bg-[#0A355E] p-4 font-bold text-white hover:bg-white disabled:opacity-50"
+                className="flex-1 bg-[#0A355E] p-4 font-bold text-white hover:bg-white disabled:opacity-70"
               >
                 {loading ? "Analyzing..." : "Analyze"}
               </button>

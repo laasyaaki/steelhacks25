@@ -174,13 +174,13 @@ export default function SearchPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for medical studies..."
-                className="flex-1 rounded-sm bg-white/10 p-4 text-white placeholder:text-gray-400"
+                className="flex-1 bg-white/10 p-4 text-white placeholder:text-gray-400"
                 onKeyDown={(e) => e.key === "Enter" && searchPubMed()}
               />
               <button
                 onClick={searchPubMed}
                 disabled={loading}
-                className="rounded-sm bg-[#0A355E] p-4 font-bold text-white disabled:opacity-50"
+                className="bg-[#0A355E] p-4 font-bold text-white disabled:opacity-70"
               >
                 {loading ? "Searching..." : "Search"}
               </button>
@@ -199,7 +199,7 @@ export default function SearchPage() {
             <div className="mb-8 space-y-4">
               <h2 className="text-2xl font-bold">Search Results</h2>
               {results.map((result) => (
-                <div key={result.pmid} className="rounded-xl bg-white/10 p-6">
+                <div key={result.pmid} className="bg-white/10 p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <h3 className="mb-2 text-xl font-bold">{result.title}</h3>
@@ -227,7 +227,7 @@ export default function SearchPage() {
                     <button
                       onClick={() => analyzeStudy(result)}
                       disabled={analyzingId === result.pmid}
-                      className="rounded-sm bg-[#0A355E] px-4 py-2 font-bold whitespace-nowrap text-white hover:bg-white disabled:opacity-50"
+                      className="bg-[#0A355E] px-4 py-2 font-bold whitespace-nowrap text-white hover:bg-white disabled:opacity-70"
                     >
                       {analyzingId === result.pmid ? "Analyzing..." : "Analyze"}
                     </button>
@@ -262,10 +262,7 @@ export default function SearchPage() {
                             <h5 className="text-lg font-bold">Evidence:</h5>
                             <div className="mt-2 space-y-2">
                               {analysis.evidence.map((item, index) => (
-                                <div
-                                  key={index}
-                                  className="rounded-sm bg-white/5 p-3"
-                                >
+                                <div key={index} className="bg-white/5 p-3">
                                   <p className="text-sm italic">
                                     "{item.quote}"
                                   </p>

@@ -4,6 +4,7 @@ import { jsonrepair } from "jsonrepair";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+//i used claude for this craziness
 function extractJson(text: string) {
   if (!text) return "";
   let t = text
