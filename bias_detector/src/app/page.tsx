@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export default function HomePage() {
   const [url, setUrl] = useState("");
@@ -63,13 +64,21 @@ export default function HomePage() {
               placeholder="Enter URL of a research study..."
               className="rounded-md bg-white/10 p-4 text-white placeholder:text-gray-400"
             />
-            <button
-              onClick={handleAnalyze}
-              disabled={loading}
-              className="rounded-md bg-[hsl(280,100%,70%)] p-4 font-bold text-white hover:bg-[hsl(280,100%,60%)] disabled:opacity-50"
-            >
-              {loading ? "Analyzing..." : "Analyze"}
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={handleAnalyze}
+                disabled={loading}
+                className="flex-1 rounded-md bg-[hsl(280,100%,70%)] p-4 font-bold text-white hover:bg-[hsl(280,100%,60%)] disabled:opacity-50"
+              >
+                {loading ? "Analyzing..." : "Analyze"}
+              </button>
+              <Link
+                href="/search"
+                className="rounded-md bg-white/10 p-4 font-bold text-white transition-colors hover:bg-white/20"
+              >
+                Search instead
+              </Link>
+            </div>
           </div>
           {error && <p className="mt-4 text-red-500">{error}</p>}
           {analysis && (

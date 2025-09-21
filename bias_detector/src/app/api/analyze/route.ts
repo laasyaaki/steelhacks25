@@ -32,10 +32,8 @@ Begin with { and end with }.
 Schema:
 {
   "score": number,
-  "verdict": "No issue" | "Possible gender-generalization bias" | "Likely gender-generalization bias",
   "justification": string,
   "evidence": [{"quote": string, "section"?: string}],
-  "citations": [{"title"?: string, "uri": string}]
 }
 `.trim();
 
