@@ -18,3 +18,7 @@ https://pubmed.ncbi.nlm.nih.gov/40958904/
 1. autism symptoms in children
 2. heart attack symptoms
 3. ADHD symptoms in teenagers
+
+
+
+Winners of Best Use of Gemini API, WiCs Award, and 3rd place Product Design @ Steelhacks XII (2025)!
